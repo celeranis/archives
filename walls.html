@@ -1,0 +1,263 @@
+<!-- DISCLAIMER: i have literally never made a website before please adjust your expectations accordingly -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Group Wall Archive</title>
+	<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet"> 
+</head>
+<body>
+	<h1>Group Wall Archive</h1>
+	<div id="chooseGroup">
+		<h2>Choose a group</h2>
+		<ul id='groupList'></ul>
+	</div>
+	<div id="search">
+		<h2>Search</h2>
+		<label>Body:</label>
+		<input type="text" id="bodyInput">
+		<label>Before:</label>
+		<input type="date" id="beforeInput">
+		<label>After:</label>
+		<input type="date" id="afterInput">
+		<label>User ID:</label>
+		<input type="text" id="userInput">
+		<label>Oldest first:</label>
+		<input type="checkbox" id="reverseCheck">
+		<label>Page:</label>
+		<input type="number" id="pageNumber">
+		<label>Posts per page:</label>
+		<input type="number" id="perPage">
+	</div>
+	<span id="postContainer">
+		<h2>Posts</h2>
+		<ul id="posts">
+		</ul>
+	</span>
+	<div id="navigation">
+		<button onclick="changePage(-1)">Previous</button>
+		<button onclick="changePage(1)">Next</button>
+	</div>
+	<script src="groupClass.js"></script>
+	<script>
+		const GROUPS = {
+			aon: new Group('aon', 'Anger of Noobs', 3546682),
+			cfn: new Group('cfn', 'Campfire Noobs', 3999955),
+			elite: new Group('elite', 'Anger of Noobs Elite', 4121103),
+			ggi: new Group('ggi', 'Gamer Group Inc.', 3126217),
+			neonoobs: new Group('neonoobs', 'NeoNoobs', 5430736),
+			pixel_gods: new Group('pixel_gods', 'Pixel Gods', 3877036),
+			toc: new Group('toc', 'The Odd Crew', 4250338),
+		}
+		
+		let currentGroup = undefined
+		let currentSearch = undefined
+		
+		const list = document.getElementById('groupList')
+		const postList = document.getElementById('posts')
+
+		const perPageInput = document.getElementById('perPage')
+		const pageNumberInput = document.getElementById('pageNumber')
+		const bodyInput = document.getElementById('bodyInput')
+		const afterInput = document.getElementById('afterInput')
+		const beforeInput = document.getElementById('beforeInput')
+		const userInput = document.getElementById('userInput')
+		const reverseCheck = document.getElementById('reverseCheck')
+
+		function getQuery() {
+			return {
+				body: bodyInput.value.trim() || undefined,
+				beforeDate: beforeInput.valueAsDate,
+				afterDate: afterInput.valueAsDate,
+				userId: parseInt(userInput.value.trim()) || undefined,
+				reverse: reverseCheck.checked
+			}
+		}
+
+		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+		function createPost(post) {
+			const main = document.createElement('li')
+			main.classList.add('post')
+			main.id = 'post-' + post.id
+
+			const userThumb = document.createElement('img')
+			userThumb.classList.add('postAvatar')
+			userThumb.src = `https://www.roblox.com/headshot-thumbnail/image?width=48&height=48&format=png&userId=${post.posterId}`
+			main.appendChild(userThumb)
+
+			const contents = document.createElement('div')
+			contents.classList.add('postContents')
+
+			const username = document.createElement('a')
+			username.textContent = post.posterName
+			username.href = `https://www.roblox.com/users/${post.posterId}/profile`
+			username.classList.add('username')
+			contents.appendChild(username)
+
+			const body = document.createElement('p')
+			body.textContent = post.body
+			body.classList.add('postBody')
+			contents.appendChild(body)
+
+			const date = post.created
+			const dateText = document.createElement('p')
+			dateText.textContent = `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} | ${date.toLocaleTimeString(undefined, {hour:"numeric", minute:"numeric"})}`
+			dateText.classList.add('postDate')
+			contents.append(dateText)
+
+			main.appendChild(contents)
+			postList.appendChild(main)
+		}
+
+		function showPage() {
+			postList.innerHTML = ''
+			let page = currentGroup.getPage(currentSearch, pageNumberInput.valueAsNumber || 0, perPageInput.valueAsNumber || 20)
+			for (let [, post] of page.entries()) {
+				createPost(post)
+			}
+		}
+
+		async function openGroup(group, ev) {
+			console.log(group)
+			pageNumberInput.valueAsNumber = 0
+			currentGroup = group
+			currentSearch = await group.searchWall(getQuery())
+			showPage()
+		}
+
+		for (let [id, group] of Object.entries(GROUPS)) {
+			const item = document.createElement('li')
+			item.classList.add('groupOption')
+
+			const icon = document.createElement('img')
+			icon.src = group.getIcon()
+			icon.classList.add('groupIcon')
+			item.appendChild(icon)
+
+			item.appendChild(document.createElement('br'))
+			item.appendChild(document.createTextNode(group.name))
+			list.appendChild(item)
+
+			icon.onclick = ev => openGroup(group, ev)
+		}
+
+		async function refresh() {
+			if (currentGroup) {
+				currentSearch = await currentGroup.searchWall(getQuery())
+				showPage()
+			}
+		}
+
+		function changePage(delta) {
+			pageNumberInput.valueAsNumber = Math.max((pageNumberInput.valueAsNumber || 0) + delta, 0)
+			refresh()
+		}
+
+		for (let [, input] of document.querySelectorAll('input').entries()) {
+			input.oninput = refresh
+		}
+	</script>
+	<style>
+		body {
+			font-family: 'Public Sans', Verdana, Geneva, Tahoma, sans-serif;
+			background-color: #232527;
+			color: #fff;
+		}
+		a {
+			text-decoration: none;
+			color: #fff;
+			font-weight: 500;
+		}
+		a:hover {
+			text-decoration: underline;
+		}
+		ul {
+			list-style: none;
+		}
+		#chooseGroup {
+			text-align: center;
+			margin-left: auto;
+			margin-right: auto;
+		}
+		#groupList {
+			display: inline;
+			text-align: center;
+			margin-left: auto;
+			margin-right: auto;
+		}
+		.groupIcon {
+			height: 150px;
+			border-radius: 10%;
+		}
+		.groupOption {
+			display: inline-block;
+			text-align: center;
+			padding-left: 1rem;
+		}
+		#search {
+			margin-left: auto;
+			margin-right: auto;
+			text-align: center;
+		}
+		#postContainer {
+			width: 80%;
+			margin-top: 10px;
+			padding: 1px 24px 24px 24px;
+			background-color: #393B3D;
+			display: block;
+			border-radius: .5rem;
+			margin-left: auto;
+			margin-right: auto;
+		}
+		.post {
+			display: table;
+			position: relative;
+			border-top: 1px solid #656668;
+			padding-top: 1rem;
+			padding-bottom: 1rem;
+			width: 100%;
+		}
+		.postAvatar {
+			height: 48px;
+			border-radius: 50%;
+			float: left;
+			margin: 1px 0;
+			margin-right: 12px;
+		}
+		.postContents {
+			position: relative;
+			width: calc(100% - 84px);
+			margin-left: 74px;
+		}
+		.postBody {
+			color: #bdbebe;
+			line-height: 1.5em;
+			font-size: 16px;
+			font-weight: 400;
+			position: relative;
+			margin-top: 3px;
+		}
+		.postDate {
+			color: #bdbebe;
+			line-height: 1.4em;
+			font-size: 12px;
+			font-weight: 400;
+			position: relative;
+		}
+		.username {
+			line-height: 1.4em;
+			position: relative;
+		}
+		.postAvatar img {
+			background-color: #878889;
+		}
+		#navigation {
+			text-align: center;
+			margin-top: 1rem;
+		}
+	</style>
+</body>
+</html>
